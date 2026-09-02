@@ -35,10 +35,11 @@ The planned PiriView Core functionality includes:
 
 ## Development
 
-PiriView originated as a privately developed medical-imaging research application.
+PiriView Core was initiated as a public open-source research project in September 2026.
 
-PiriView Core is a separately maintained research edition whose core functionality is being developed publicly from September 2026 onward.
+The project builds on concepts and experience gained during earlier private development of PiriView, while the open-source Core is being independently structured, documented, tested, and developed in this repository.
 
+Functionality will be introduced incrementally through public development and versioned releases.
 The project is under active development and is not intended for clinical diagnostic use.
 
 ## License
