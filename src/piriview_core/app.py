@@ -2,8 +2,9 @@
 
 import sys
 
+import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -26,9 +27,10 @@ class MainWindow(QMainWindow):
 
         self.series = {}
 
-        self.status_label = QLabel("No study loaded")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(self.status_label)
+        self.image_label = QLabel("No study loaded")
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setStyleSheet("background-color: black; color: white;")
+        self.setCentralWidget(self.image_label)
 
         self._create_menu()
 
@@ -65,17 +67,66 @@ class MainWindow(QMainWindow):
             return
 
         if not self.series:
-            self.status_label.setText("No DICOM series found")
+            self.image_label.setText("No DICOM series found")
             return
 
-        image_count = sum(
-            len(datasets) for datasets in self.series.values()
+        first_series = next(iter(self.series.values()))
+
+        if not first_series:
+            self.image_label.setText("No images found")
+            return
+
+        try:
+            self.display_dataset(first_series[0])
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "Unable to display image",
+                str(error),
+            )
+
+    def display_dataset(self, dataset):
+        """Display one DICOM dataset as a grayscale image."""
+
+        pixel_array = dataset.pixel_array.astype(np.float32)
+
+        minimum = float(pixel_array.min())
+        maximum = float(pixel_array.max())
+
+        if maximum > minimum:
+            pixel_array = (
+                (pixel_array - minimum)
+                / (maximum - minimum)
+                * 255.0
+            )
+        else:
+            pixel_array = np.zeros_like(pixel_array)
+
+        pixel_array = pixel_array.astype(np.uint8)
+
+        if getattr(dataset, "PhotometricInterpretation", "") == "MONOCHROME1":
+            pixel_array = 255 - pixel_array
+
+        height, width = pixel_array.shape
+
+        image = QImage(
+            pixel_array.data,
+            width,
+            height,
+            pixel_array.strides[0],
+            QImage.Format.Format_Grayscale8,
+        ).copy()
+
+        pixmap = QPixmap.fromImage(image)
+
+        pixmap = pixmap.scaled(
+            self.image_label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
         )
 
-        self.status_label.setText(
-            f"Loaded {len(self.series)} DICOM series\n"
-            f"{image_count} images"
-        )
+        self.image_label.setText("")
+        self.image_label.setPixmap(pixmap)
 
 
 def run():
