@@ -44,6 +44,6 @@ The project is under active development and is not intended for clinical diagnos
 
 ## License
 
-PiriView Core is licensed under the Mozilla Public License 2.0 (MPL-2.0).
+PiriView Core is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
 See the [LICENSE](LICENSE) file for details.
