@@ -71,14 +71,18 @@ class MainWindow(QMainWindow):
             self.image_label.setText("No DICOM series found")
             return
 
-        first_series = next(iter(self.series.values()))
+    self.active_series = next(iter(self.series.values()))
 
-        if not first_series:
-            self.image_label.setText("No images found")
-            return
+if not self.active_series:
+    self.image_label.setText("No images found")
+    return
 
-        try:
-            self.display_dataset(first_series[0])
+self.navigation.set_series(len(self.active_series))
+
+try:
+    self.display_dataset(
+        self.active_series[self.navigation.state.slice_index]
+    )
         except Exception as error:
             QMessageBox.critical(
                 self,
@@ -86,7 +90,28 @@ class MainWindow(QMainWindow):
                 str(error),
             )
 
-    def display_dataset(self, dataset):
+def wheelEvent(self, event):
+    """Navigate through the active image series with the mouse wheel."""
+
+    if not self.active_series:
+        return
+
+    delta = event.angleDelta().y()
+
+    if delta == 0:
+        return
+
+    # Wheel down moves forward through the series.
+    steps = 1 if delta < 0 else -1
+
+    slice_index = self.navigation.move_slice(steps)
+
+    self.display_dataset(
+        self.active_series[slice_index]
+    )
+
+    event.accept()  
+def display_dataset(self, dataset):
         """Display one DICOM dataset as a grayscale image."""
 
         pixel_array = dataset.pixel_array.astype(np.float32)
