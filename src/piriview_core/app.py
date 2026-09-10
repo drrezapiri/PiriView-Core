@@ -1,6 +1,7 @@
 """Main application window for PiriView Core."""
 
 import sys
+from piriview_core.navigation import NavigationService
 
 import numpy as np
 from PySide6.QtCore import Qt
