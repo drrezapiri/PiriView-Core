@@ -89,6 +89,7 @@ class MainWindow(QMainWindow):
                 "Unable to display image",
                 str(error),
             )
+            
     def wheelEvent(self, event):
         """Navigate through the active image series with the mouse wheel."""
 
@@ -110,9 +111,8 @@ class MainWindow(QMainWindow):
         )
 
         event.accept()
-
    
-def display_dataset(self, dataset):
+    def display_dataset(self, dataset):
         """Display one DICOM dataset as a grayscale image."""
 
         pixel_array = dataset.pixel_array.astype(np.float32)
