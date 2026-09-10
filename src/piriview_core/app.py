@@ -27,7 +27,8 @@ class MainWindow(QMainWindow):
         self.resize(1000, 700)
 
         self.series = {}
-
+        self.active_series = []
+        self.navigation = NavigationService()
         self.image_label = QLabel("No study loaded")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet("background-color: black; color: white;")
@@ -71,25 +72,29 @@ class MainWindow(QMainWindow):
             self.image_label.setText("No DICOM series found")
             return
 
-    self.active_series = next(iter(self.series.values()))
+    def wheelEvent(self, event):
+        """Navigate through the active image series with the mouse wheel."""
 
-if not self.active_series:
-    self.image_label.setText("No images found")
-    return
+        if not self.active_series:
+            return
 
-self.navigation.set_series(len(self.active_series))
+        delta = event.angleDelta().y()
 
-try:
-    self.display_dataset(
-        self.active_series[self.navigation.state.slice_index]
-    )
-        except Exception as error:
-            QMessageBox.critical(
-                self,
-                "Unable to display image",
-                str(error),
-            )
+        if delta == 0:
+            return
 
+        # Wheel down moves forward through the series.
+        steps = 1 if delta < 0 else -1
+
+        slice_index = self.navigation.move_slice(steps)
+
+        self.display_dataset(
+            self.active_series[slice_index]
+        )
+
+        event.accept()
+
+    def display_dataset(self, dataset):
 def wheelEvent(self, event):
     """Navigate through the active image series with the mouse wheel."""
 
