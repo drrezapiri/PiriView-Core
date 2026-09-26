@@ -31,6 +31,9 @@ class MainWindow(QMainWindow):
         self.active_series = []
         self.navigation = NavigationService()
 
+        self.window_center = None
+        self.window_width = None
+
         self.image_label = QLabel("No study loaded")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setStyleSheet(
@@ -84,6 +87,9 @@ class MainWindow(QMainWindow):
 
         self.navigation.set_series(len(self.active_series))
 
+        first_dataset = self.active_series[0]
+        self._initialize_window_level(first_dataset)
+
         try:
             self.display_dataset(
                 self.active_series[
@@ -97,30 +103,8 @@ class MainWindow(QMainWindow):
                 str(error),
             )
 
-    def wheelEvent(self, event):
-        """Navigate through the active image series with the mouse wheel."""
-
-        if not self.active_series:
-            return
-
-        delta = event.angleDelta().y()
-
-        if delta == 0:
-            return
-
-        # Wheel down moves forward through the series.
-        steps = 1 if delta < 0 else -1
-
-        slice_index = self.navigation.move_slice(steps)
-
-        self.display_dataset(
-            self.active_series[slice_index]
-        )
-
-        event.accept()
-
-    def display_dataset(self, dataset):
-        """Display one DICOM dataset as a grayscale image."""
+    def _initialize_window_level(self, dataset):
+        """Initialize viewer window and level from a DICOM dataset."""
 
         pixel_array = dataset.pixel_array.astype(np.float32)
 
@@ -171,10 +155,49 @@ class MainWindow(QMainWindow):
                 1.0,
             )
 
+        self.window_center = window_center
+        self.window_width = window_width
+
+    def wheelEvent(self, event):
+        """Navigate through the active image series with the mouse wheel."""
+
+        if not self.active_series:
+            return
+
+        delta = event.angleDelta().y()
+
+        if delta == 0:
+            return
+
+        # Wheel down moves forward through the series.
+        steps = 1 if delta < 0 else -1
+
+        slice_index = self.navigation.move_slice(steps)
+
+        self.display_dataset(
+            self.active_series[slice_index]
+        )
+
+        event.accept()
+
+    def display_dataset(self, dataset):
+        """Display one DICOM dataset as a grayscale image."""
+
+        pixel_array = dataset.pixel_array.astype(np.float32)
+
+        slope = float(
+            getattr(dataset, "RescaleSlope", 1.0)
+        )
+        intercept = float(
+            getattr(dataset, "RescaleIntercept", 0.0)
+        )
+
+        pixel_array = pixel_array * slope + intercept
+
         pixel_array = apply_window_level(
             pixel_array,
-            window_center,
-            window_width,
+            self.window_center,
+            self.window_width,
         )
 
         if (
@@ -207,6 +230,17 @@ class MainWindow(QMainWindow):
 
         self.image_label.setText("")
         self.image_label.setPixmap(pixmap)
+
+        slice_number = (
+            self.navigation.state.slice_index + 1
+        )
+        slice_count = self.navigation.state.slice_count
+
+        self.statusBar().showMessage(
+            f"Slice {slice_number}/{slice_count}    "
+            f"W: {self.window_width:.0f}    "
+            f"L: {self.window_center:.0f}"
+        )
 
 
 def run():
