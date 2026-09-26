@@ -1,7 +1,6 @@
 """Main application window for PiriView Core."""
 
 import sys
-from piriview_core.navigation import NavigationService
 
 import numpy as np
 from PySide6.QtCore import Qt
@@ -15,6 +14,8 @@ from PySide6.QtWidgets import (
 )
 
 from piriview_core.dicom_loader import load_dicom_series
+from piriview_core.navigation import NavigationService
+from piriview_core.window_level import apply_window_level
 
 
 class MainWindow(QMainWindow):
@@ -29,9 +30,12 @@ class MainWindow(QMainWindow):
         self.series = {}
         self.active_series = []
         self.navigation = NavigationService()
+
         self.image_label = QLabel("No study loaded")
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("background-color: black; color: white;")
+        self.image_label.setStyleSheet(
+            "background-color: black; color: white;"
+        )
         self.setCentralWidget(self.image_label)
 
         self._create_menu()
@@ -71,6 +75,7 @@ class MainWindow(QMainWindow):
         if not self.series:
             self.image_label.setText("No DICOM series found")
             return
+
         self.active_series = next(iter(self.series.values()))
 
         if not self.active_series:
@@ -81,7 +86,9 @@ class MainWindow(QMainWindow):
 
         try:
             self.display_dataset(
-                self.active_series[self.navigation.state.slice_index]
+                self.active_series[
+                    self.navigation.state.slice_index
+                ]
             )
         except Exception as error:
             QMessageBox.critical(
@@ -89,7 +96,7 @@ class MainWindow(QMainWindow):
                 "Unable to display image",
                 str(error),
             )
-            
+
     def wheelEvent(self, event):
         """Navigate through the active image series with the mouse wheel."""
 
@@ -111,27 +118,73 @@ class MainWindow(QMainWindow):
         )
 
         event.accept()
-   
+
     def display_dataset(self, dataset):
         """Display one DICOM dataset as a grayscale image."""
 
         pixel_array = dataset.pixel_array.astype(np.float32)
 
-        minimum = float(pixel_array.min())
-        maximum = float(pixel_array.max())
+        slope = float(
+            getattr(dataset, "RescaleSlope", 1.0)
+        )
+        intercept = float(
+            getattr(dataset, "RescaleIntercept", 0.0)
+        )
 
-        if maximum > minimum:
-            pixel_array = (
-                (pixel_array - minimum)
-                / (maximum - minimum)
-                * 255.0
-            )
+        pixel_array = pixel_array * slope + intercept
+
+        window_center = getattr(
+            dataset,
+            "WindowCenter",
+            None,
+        )
+        window_width = getattr(
+            dataset,
+            "WindowWidth",
+            None,
+        )
+
+        if (
+            window_center is not None
+            and window_width is not None
+        ):
+            try:
+                window_center = float(window_center[0])
+            except (TypeError, IndexError):
+                window_center = float(window_center)
+
+            try:
+                window_width = float(window_width[0])
+            except (TypeError, IndexError):
+                window_width = float(window_width)
+
         else:
-            pixel_array = np.zeros_like(pixel_array)
+            minimum = float(pixel_array.min())
+            maximum = float(pixel_array.max())
 
-        pixel_array = pixel_array.astype(np.uint8)
+            window_center = (
+                minimum + maximum
+            ) / 2.0
 
-        if getattr(dataset, "PhotometricInterpretation", "") == "MONOCHROME1":
+            window_width = max(
+                maximum - minimum,
+                1.0,
+            )
+
+        pixel_array = apply_window_level(
+            pixel_array,
+            window_center,
+            window_width,
+        )
+
+        if (
+            getattr(
+                dataset,
+                "PhotometricInterpretation",
+                "",
+            )
+            == "MONOCHROME1"
+        ):
             pixel_array = 255 - pixel_array
 
         height, width = pixel_array.shape
